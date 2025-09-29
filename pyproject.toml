@@ -1,0 +1,22 @@
+[project]
+name = "Financial_Statement_Analysis_POC_Crewai"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "docling>=2.8.0",
+    "langchain-community>=0.3.0",
+    "langchain-huggingface>=0.1.0",
+    "langchain-core>=0.3.0",
+    "sentence-transformers>=2.2.2",
+    "faiss-cpu>=1.7.4",
+    "easyocr>=1.7.1",
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
+    "langchain-google-genai>=2.1.12",
+    "loguru>=0.7.3",
+    "crewai[tools]>=0.201.1",
+    "llama-index>=0.14.3",
+    "crewai-tools>=0.75.0",
+]
