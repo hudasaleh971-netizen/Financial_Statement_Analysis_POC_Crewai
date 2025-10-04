@@ -172,7 +172,7 @@ def chat_with_agent(query: str) -> str:
 # Example usage
 if __name__ == "__main__":
     # Test the system
-    test_query = "what is the total equity in 2024 & 2023?"
+    test_query = "what is the total equity?"
     try:
         response = chat_with_agent(test_query)
         print(f"Query: {test_query}")
