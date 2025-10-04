@@ -19,4 +19,6 @@ dependencies = [
     "crewai[tools]>=0.201.1",
     "llama-index>=0.14.3",
     "crewai-tools>=0.75.0",
+    "rapidocr-onnxruntime>=1.4.4",
+    "pymupdf>=1.26.4",
 ]
