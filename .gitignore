@@ -8,3 +8,15 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Log and output files
+backend/logs/
+backend/output/
+backend/src/financial_statement_analysis/output/
+
+# IDE files
+.vscode/
+.idea/
+
+# Misc
+backend/backend/

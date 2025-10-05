@@ -944,6 +944,7 @@ dependencies = [
     { name = "faiss-cpu" },
     { name = "langchain-community" },
     { name = "langchain-core" },
+    { name = "langchain-docling" },
     { name = "langchain-google-genai" },
     { name = "langchain-huggingface" },
     { name = "llama-index" },
@@ -964,6 +965,7 @@ requires-dist = [
     { name = "faiss-cpu", specifier = ">=1.7.4" },
     { name = "langchain-community", specifier = ">=0.3.0" },
     { name = "langchain-core", specifier = ">=0.3.0" },
+    { name = "langchain-docling", specifier = ">=1.1.0" },
     { name = "langchain-google-genai", specifier = ">=2.1.12" },
     { name = "langchain-huggingface", specifier = ">=0.1.0" },
     { name = "llama-index", specifier = ">=0.14.3" },
@@ -1683,6 +1685,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a8/04/0035bd1df8d0fb534afceabe3ba0a87c5af8c5020177650e9aa79aca3495/langchain_core-0.3.78.tar.gz", hash = "sha256:a174a2061f8659b916fd2b1c7d174b3ddd07be7ca45a07aaec442696df5101b6", size = 580473, upload-time = "2025-10-03T16:52:37.025Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9c/a7/ff35c108c4863c1bb99724a4253ff2324aea5789d689dd59424c07df1199/langchain_core-0.3.78-py3-none-any.whl", hash = "sha256:dafc4f7e9fd008f680bf0ffe5904dbaa45992abdb92627b68eccb7b4089cbbf0", size = 449610, upload-time = "2025-10-03T16:52:35.428Z" },
+]
+
+[[package]]
+name = "langchain-docling"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "docling" },
+    { name = "langchain-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fb/ab/c6e01d4830b8fdaa1e68e05e44159b78febd764debf3b70c64a8c001eaab/langchain_docling-1.1.0.tar.gz", hash = "sha256:cc9df0e438f67ac4f6cc68651c76d4929d177ff42a5242f5152b8a826426d329", size = 7542, upload-time = "2025-09-10T08:11:01.535Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/6d/19119e5de0d7976444d5fa136ff226fc4aaa93070cbdf74c372043e6aa3c/langchain_docling-1.1.0-py3-none-any.whl", hash = "sha256:3194f481e2ced092f5c0ac18a52226a9d928f66809eee7ecfbf934a2b84c4c1d", size = 7412, upload-time = "2025-09-10T08:11:00.483Z" },
 ]
 
 [[package]]

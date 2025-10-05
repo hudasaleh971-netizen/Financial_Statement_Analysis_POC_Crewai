@@ -21,4 +21,5 @@ dependencies = [
     "crewai-tools>=0.75.0",
     "rapidocr-onnxruntime>=1.4.4",
     "pymupdf>=1.26.4",
+    "langchain-docling>=1.1.0",
 ]
