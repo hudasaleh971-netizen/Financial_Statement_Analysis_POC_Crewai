@@ -1,11 +1,10 @@
 import os
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process, LLM
-from src.financial_statement_analysis.tools.rag_tool import RetrieverTool
+from src.financial_statement_analysis.tools.vectorstore_load import RetrieverTool
 
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-
 
 # Initialize LLM
 retriever_tool = RetrieverTool()
@@ -13,7 +12,7 @@ retriever_tool = RetrieverTool()
 # LLM Setup (unchanged)
 llm = LLM(
     model="gemini/gemini-2.0-flash",
-    temperature=0.7,
+    temperature=0,
     api_key=GOOGLE_API_KEY
 )
 
@@ -105,5 +104,5 @@ crew = Crew(
 )
 
 if __name__ == "__main__":
-    result = crew.kickoff()
+    result = crew.kickoff(filename="HSBC-11.pdf") # i want to use file name for filtering
     print(result)

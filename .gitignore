@@ -20,3 +20,6 @@ backend/src/financial_statement_analysis/output/
 
 # Misc
 backend/backend/
+
+# Vector store databases
+backend/qdrant_db/

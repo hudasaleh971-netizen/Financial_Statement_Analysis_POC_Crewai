@@ -89,7 +89,7 @@ class DocumentProcessor:
     def convert_document(
         self,
         source_path: str,
-        output_dir: str = "output/processed_docs/",
+        output_dir: str = "C:/Users/h.goian/Documents/Maseera/Finance/Financial_Statemets_Analysis/Financial_Statement_Analysis_POC_Crewai/backend/src/financial_statement_analysis/output/processed_docs/",
         save_as_markdown: bool = False,
         save_as_json: bool = False,
         save_as_html: bool = False,

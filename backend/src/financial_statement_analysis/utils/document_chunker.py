@@ -16,6 +16,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from src.financial_statement_analysis.utils.logging_config import setup_logger, log_execution_time
 from src.financial_statement_analysis.utils.document_processor import DocumentProcessor
 from dotenv import load_dotenv
+import pprint
 
 load_dotenv()
 logger = setup_logger()
@@ -58,9 +59,16 @@ class TableDescriptionGenerator:
             logger.info(f"ChatGoogleGenerativeAI initialized with model: {model_name}")
             
             self.prompt = ChatPromptTemplate.from_messages([
-                ("system", """You are an expert at analyzing financial tables. Create a concise description (under 150 words) of the table's structure and purpose, focusing on columns, rows, and key financial data types."""),
-                ("user", "Analyze this financial table and provide a clear description:\n\n{table_markdown}")
+                ("system", """You are an expert at analyzing financial tables. 
+            Your task is to provide a concise description (under 100 words) of the table. 
+            Focus on:
+            1. What the table is about (its main purpose or topic).
+            2. The columns in the exact order they appear, including their names.
+            3. The units used for values (if mentioned, e.g., USD, %, millions).
+            Be clear and precise without adding extra interpretations beyond what is in the table."""),
+                ("user", "Analyze this financial table and provide the description:\n\n{table_markdown}")
             ])
+
             
             logger.info("TableDescriptionGenerator initialized successfully.")
             
@@ -165,15 +173,16 @@ class EnhancedDocumentChunker:
         return doc.tables
 
     @log_execution_time
-    def chunk_document(self, docling_document) -> List:
+    def chunk_document(self, docling_document, source_file: str) -> List:
         """
         Create chunks from a DoclingDocument with AI table descriptions.
         
         Args:
             docling_document: The DoclingDocument from DocumentProcessor.
+            source_file: The original file path (added param to access filename).
             
         Returns:
-            A list of chunks with enhanced table descriptions.
+            A list of chunks with enhanced table descriptions and simplified metadata.
         """
         logger.info("=" * 70)
         logger.info("Starting document chunking...")
@@ -218,6 +227,31 @@ class EnhancedDocumentChunker:
             if table_chunks:
                 logger.info(f"  └─ Enhanced {len(table_chunks)} table chunks with precomputed descriptions.")
             
+            # New Step 4: Simplify metadata for all chunks to reduce size
+            filename = os.path.basename(source_file)  # Or use docling_document.name if preferred
+            for chunk in chunks:
+                simplified_doc_items = []
+                for item in chunk.meta.doc_items:
+                    simplified_prov = []
+                    for p in item.prov:
+                        simplified_prov.append({
+                            'page': p.page_no,
+                            'location': p.bbox.dict()  # Dict with bbox coords (l, t, r, b)
+                        })
+                    simplified_doc_items.append({
+                        'type': item.label,
+                        'prov': simplified_prov
+                    })
+                
+                # Replace meta with simplified version
+                chunk.meta = {
+                    'filename': filename,
+                    'headers': chunk.meta.headings,  # List of headers; join if you prefer a string
+                    'doc_items': simplified_doc_items
+                }
+            
+            logger.info(f"  └─ Simplified metadata for {len(chunks)} chunks.")
+            
             return chunks
             
         except Exception as e:
@@ -228,6 +262,7 @@ class EnhancedDocumentChunker:
 # Example usage
 if __name__ == "__main__":
     from transformers import AutoTokenizer
+
 
     # Load environment variables from .env file in the 'backend' directory
     # This should be done before any other code that needs the environment variables
@@ -242,16 +277,16 @@ if __name__ == "__main__":
         
         # Step 2: Initialize tokenizer
         logger.info("\nStep 2: Loading tokenizer...")
-        tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-        
+        tokenizer = AutoTokenizer.from_pretrained("ibm-granite/granite-embedding-english-r2")
+        #sentence-transformers/all-MiniLM-L6-v2	
         # Step 3: Create enhanced chunker with Gemini
         logger.info("\nStep 3: Creating enhanced chunks with Gemini...")
         enhanced_chunker = EnhancedDocumentChunker(
             tokenizer=tokenizer,
             model_name="gemini-2.0-flash",
-            max_tokens=512,
+            max_tokens=1024,
         )
-        chunks = enhanced_chunker.chunk_document(docling_doc)
+        chunks = enhanced_chunker.chunk_document(docling_doc, source_file)  # Pass source_file here
         
         # Step 4: Display a sample table chunk with its metadata
         logger.info("\n" + "="*70)
@@ -260,7 +295,7 @@ if __name__ == "__main__":
         
         found_table_chunk = False
         for i, chunk in enumerate(chunks):
-            if any(item.label == DocItemLabel.TABLE for item in chunk.meta.doc_items):
+            if any(item['type'] == DocItemLabel.TABLE for item in chunk.meta['doc_items']):
                 logger.info(f"\n--- Chunk {i} (Table) ---")
                 logger.info(chunk.text)
                 logger.info(f"\n--- Metadata for Chunk {i} ---")
@@ -272,6 +307,83 @@ if __name__ == "__main__":
             logger.info("No table chunks were found to display.")
         
         logger.info(f"\n✓ Ready for RAG pipeline with {len(chunks)} enhanced chunks.")
+        
+        # Save all chunks and metadata to a .md file for traceability
+        output_dir = "C:/Users/h.goian/Documents/Maseera/Finance/Financial_Statemets_Analysis/Financial_Statement_Analysis_POC_Crewai/backend/src/financial_statement_analysis/output/processed_docs/"
+        base_name = os.path.basename(source_file).replace('.pdf', '')
+        output_file = os.path.join(output_dir, f"{base_name}_chunks.md")
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write("# Document Chunks Traceability\n\n")
+            f.write(f"Source Document: {source_file}\n\n")
+            f.write(f"Total Chunks: {len(chunks)}\n\n")
+            f.write("---\n\n")
+            
+            for i, chunk in enumerate(chunks):
+                f.write(f"## Chunk {i}\n\n")
+                f.write("### Text\n\n")
+                f.write(f"```\n{chunk.text}\n```\n\n")
+                f.write("### Metadata\n\n")
+                f.write(f"```python\n{pprint.pformat(chunk.meta)}\n```\n\n")
+                f.write("---\n\n")
+        
+        logger.info(f"Saved all chunks and metadata to {output_file}")
+        
+        # Step 5: Save chunks to local Qdrant vector database
+        logger.info("\nStep 5: Saving chunks to local Qdrant...")
+        
+        # # Initialize embedding model (use all-MiniLM-L6-v2 for 384-dim embeddings)
+        # embedder = SentenceTransformer('ibm-granite/granite-embedding-english-r2')
+        
+        # # Initialize Qdrant client in local mode (disk-persisted)
+        # qdrant_path = "./qdrant_db"  # Directory for local Qdrant storage
+        # client = QdrantClient(path=qdrant_path)
+        
+        # collection_name = "financial_docs"
+        
+        # # Create collection if it doesn't exist
+        # if not client.has_collection(collection_name):
+        #     client.create_collection(
+        #         collection_name=collection_name,
+        #         vectors_config=models.VectorParams(
+        #             size=384,  # Dimension of all-MiniLM-L6-v2 embeddings
+        #             distance=models.Distance.COSINE
+        #         )
+        #     )
+        #     logger.info(f"Created new Qdrant collection: {collection_name}")
+        # else:
+        #     logger.info(f"Using existing Qdrant collection: {collection_name}")
+        
+        # # Prepare and upsert points
+        # points = []
+        # for i, chunk in enumerate(chunks):
+        #     # Generate embedding for chunk text
+        #     embedding = embedder.encode(chunk.text).tolist()
+            
+        #     # Use a unique ID (e.g., UUID based on filename and chunk index)
+        #     chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{chunk.meta['filename']}_{i}"))
+            
+        #     # Payload includes text and metadata
+        #     payload = {
+        #         "text": chunk.text,
+        #         "metadata": chunk.meta
+        #     }
+            
+        #     points.append(
+        #         models.PointStruct(
+        #             id=chunk_id,
+        #             vector=embedding,
+        #             payload=payload
+        #         )
+        #     )
+        
+        # # Upsert the points in batch
+        # client.upsert(
+        #     collection_name=collection_name,
+        #     points=points
+        # )
+        
+        # logger.info(f"✓ Successfully saved {len(chunks)} chunks to Qdrant collection '{collection_name}'.")
         
     except Exception as e:
         logger.error(f"Example execution failed: {e}", exc_info=True)

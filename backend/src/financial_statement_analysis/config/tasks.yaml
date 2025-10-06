@@ -1,21 +1,19 @@
+extract_metadata:
+  description: Extract metadata (entity name, currency, report year, previous year) from the financial statement in the file {filename}.
+  agent: metadata_agent
+  expected_output: A JSON object containing the entity name, currency, report year, and previous year.
 
-tasks:
-  - name: extract_metadata
-    description: Extract metadata from the financial statement.
-    agent: metadata_agent
-    expected_output: A JSON object containing the entity name, currency, report year, and previous year.
+extract_income_statement:
+  description: Extract income statement metrics from the financial statement in the file {filename}.
+  agent: income_statement_agent
+  expected_output: A JSON object containing net interest income, non-interest income, operating expenses, interest expense, and net income for the report year and previous year.
 
-  - name: extract_income_statement
-    description: Extract income statement metrics from the financial statement.
-    agent: income_statement_agent
-    expected_output: A JSON object containing net interest income, non-interest income, operating expenses, interest expense, and net income for the report year and previous year.
+extract_balance_sheet:
+  description: Extract balance sheet metrics from the financial statement in the file {filename}.
+  agent: balance_sheet_agent
+  expected_output: A JSON object containing total assets, assets line items, total liabilities, liabilities line items, total equity, and equity line items for the report year and previous year.
 
-  - name: extract_balance_sheet
-    description: Extract balance sheet metrics from the financial statement.
-    agent: balance_sheet_agent
-    expected_output: A JSON object containing total assets, assets line items, total liabilities, liabilities line items, total equity, and equity line items for the report year and previous year.
-
-  - name: extract_risk_liquidity
-    description: Extract risk and liquidity metrics from the financial statement.
-    agent: risk_liquidity_agent
-    expected_output: A JSON object containing total loans, total deposits, loan loss provisions, non-performing loans, regulatory capital, risk-weighted assets, high-quality liquid assets, and net cash outflows over 30 days for the report year and previous year.
+extract_risk_liquidity:
+  description: Extract risk and liquidity metrics from the financial statement in the file {filename}.
+  agent: risk_liquidity_agent
+  expected_output: A JSON object containing total loans, total deposits, loan loss provisions, non-performing loans, regulatory capital, risk-weighted assets, high-quality liquid assets, and net cash outflows over 30 days for the report year and previous year.
