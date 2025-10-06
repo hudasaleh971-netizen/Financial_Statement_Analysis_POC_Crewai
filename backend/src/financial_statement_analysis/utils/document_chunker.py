@@ -1,7 +1,3 @@
-"""
-Enhanced document chunker with Gemini-powered table descriptions.
-File: enhanced_chunker.py
-"""
 from typing import List, Optional, Dict, Any
 import hashlib
 import os
@@ -19,9 +15,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from src.financial_statement_analysis.utils.logging_config import setup_logger, log_execution_time
 from src.financial_statement_analysis.utils.document_processor import DocumentProcessor
+from dotenv import load_dotenv
 
+load_dotenv()
 logger = setup_logger()
-
 
 class TableDescriptionGenerator:
     """Generates AI descriptions for tables using Google Gemini."""
@@ -30,12 +27,13 @@ class TableDescriptionGenerator:
         self, 
         model_name: str = "gemini-2.0-flash",
         temperature: float = 0,
-        api_key: Optional[str] = None
+        api_key: Optional[str] = os.getenv("GOOGLE_API_KEY")
     ):
         """
         Initialize the table description generator with Gemini.
+        
         Args:
-            model_name: Gemini model to use (gemini-1.5-flash, gemini-1.5-pro)
+            model_name: Gemini model to use (gemini-2.0-flash, gemini-1.5-pro)
             temperature: Temperature for generation (lower = more deterministic)
             api_key: Google API key (will default to GOOGLE_API_KEY env var)
         """
@@ -48,6 +46,8 @@ class TableDescriptionGenerator:
             if not effective_api_key:
                 logger.warning("GOOGLE_API_KEY not found. Table description generation is disabled.")
                 return
+            
+            logger.info(f"API Key found: {effective_api_key[:10]}...{effective_api_key[-4:]}")
 
             self.llm = ChatGoogleGenerativeAI(
                 model=model_name,
@@ -55,14 +55,17 @@ class TableDescriptionGenerator:
                 google_api_key=effective_api_key
             )
             
+            logger.info(f"ChatGoogleGenerativeAI initialized with model: {model_name}")
+            
             self.prompt = ChatPromptTemplate.from_messages([
                 ("system", """You are an expert at analyzing financial tables. Create a concise description (under 150 words) of the table's structure and purpose, focusing on columns, rows, and key financial data types."""),
                 ("user", "Analyze this financial table and provide a clear description:\n\n{table_markdown}")
             ])
             
             logger.info("TableDescriptionGenerator initialized successfully.")
+            
         except Exception as e:
-            logger.error(f"Failed to initialize TableDescriptionGenerator: {e}", exc_info=True)
+            logger.error(f"Failed to initialize TableDescriptionGenerator: {type(e).__name__}: {str(e)}", exc_info=True)
             self.llm = None # Ensure LLM is disabled on error
         
     def _get_table_hash(self, table_markdown: str) -> str:
@@ -117,48 +120,6 @@ class TableDescriptionGenerator:
             return f"Table description unavailable due to error: {type(e).__name__}: {str(e)}"
 
 
-class EnhancedMDTableSerializer(MarkdownTableSerializer):
-    """Enhanced markdown table serializer with AI-generated descriptions."""
-    
-    def __init__(self, description_generator: TableDescriptionGenerator):
-        super().__init__()
-        self.description_generator = description_generator
-        logger.debug("EnhancedMDTableSerializer initialized.")
-    
-    def serialize(self, *, item, doc_serializer, doc, **kwargs):
-        """Serialize table with an AI-generated description prepended."""
-        try:
-            # Call parent's serialize with keyword arguments
-            base_result = super().serialize(
-                item=item,
-                doc_serializer=doc_serializer,
-                doc=doc,
-                **kwargs
-            )
-            
-            # Get the markdown text from the result
-            base_markdown = base_result.text if hasattr(base_result, 'text') else str(base_result)
-            
-            # Generate AI description
-            description = self.description_generator.generate_description(base_markdown)
-            
-            # Create enhanced markdown
-            enhanced_markdown = f"**Table Description:**\n{description}\n\n**Table Data:**\n{base_markdown}"
-            
-            # Return result with same structure as parent
-            return create_ser_result(text=enhanced_markdown, span_source=item)
-            
-        except Exception as e:
-            logger.error(f"Failed to serialize table with description: {e}", exc_info=True)
-            # Fallback to parent's serialize
-            return super().serialize(
-                item=item,
-                doc_serializer=doc_serializer,
-                doc=doc,
-                **kwargs
-            )
-
-
 class EnhancedDocumentChunker:
     """A document chunker that enriches tables with AI-generated descriptions."""
     
@@ -166,7 +127,7 @@ class EnhancedDocumentChunker:
         self,
         tokenizer,
         model_name: str = "gemini-2.0-flash",
-        temperature: float = 0,
+        temperature: float = 0.3,
         max_tokens: int = 512,
         api_key: Optional[str] = None
     ):
@@ -180,16 +141,16 @@ class EnhancedDocumentChunker:
         """
         logger.info("Initializing EnhancedDocumentChunker...")
         
-        description_generator = TableDescriptionGenerator(
+        self.description_generator = TableDescriptionGenerator(
             model_name=model_name,
             temperature=temperature,
             api_key=api_key
         )
-        table_serializer = EnhancedMDTableSerializer(description_generator)
-
+        
+        # Use standard MarkdownTableSerializer for chunking (no descriptions yet)
         class CustomSerializerProvider(ChunkingSerializerProvider):
             def get_serializer(self, doc):
-                return ChunkingDocSerializer(doc=doc, table_serializer=table_serializer)
+                return ChunkingDocSerializer(doc=doc, table_serializer=MarkdownTableSerializer())
 
         self.chunker = HybridChunker(
             tokenizer=tokenizer,
@@ -198,6 +159,10 @@ class EnhancedDocumentChunker:
         )
         
         logger.info(f"EnhancedDocumentChunker initialized (Max tokens: {max_tokens}).")
+
+    def _get_all_tables(self, doc) -> List:
+        """Collect all table DocItems from the document."""
+        return doc.tables
 
     @log_execution_time
     def chunk_document(self, docling_document) -> List:
@@ -214,12 +179,44 @@ class EnhancedDocumentChunker:
         logger.info("Starting document chunking...")
         
         try:
+            # Step 1: Precompute descriptions for all tables using full markdown
+            table_descriptions = {}
+            temp_doc_serializer = ChunkingDocSerializer(
+                doc=docling_document, table_serializer=MarkdownTableSerializer()
+            )
+            tables = self._get_all_tables(docling_document)
+            logger.info(f"Found {len(tables)} tables for precomputing descriptions.")
+            
+            for table in tables:
+                # Serialize full table to markdown
+                base_result = MarkdownTableSerializer().serialize(
+                    item=table,
+                    doc_serializer=temp_doc_serializer,
+                    doc=docling_document
+                )
+                base_markdown = base_result.text
+                description = self.description_generator.generate_description(base_markdown)
+                # Use self_ref as unique key
+                table_descriptions[table.self_ref] = description
+            
+            # Step 2: Perform standard chunking (splits large tables)
             chunks = list(self.chunker.chunk(dl_doc=docling_document))
             logger.info(f"✓ Created {len(chunks)} chunks from document.")
             
-            table_chunks = [c for c in chunks if any(item.label == DocItemLabel.TABLE for item in c.meta.doc_items)]
+            # Step 3: Post-process chunks to add precomputed descriptions to table chunks
+            table_chunks = []
+            for chunk in chunks:
+                table_items = [item for item in chunk.meta.doc_items if item.label == DocItemLabel.TABLE]
+                if table_items:
+                    # Assume one table per chunk; take the first if multiple
+                    table = table_items[0]
+                    description = table_descriptions.get(table.self_ref, "Table description unavailable.")
+                    # Prepend description to the chunk text (which may be full or partial table data)
+                    chunk.text = f"**Table Description:**\n{description}\n\n**Table Data:**\n{chunk.text}"
+                    table_chunks.append(chunk)
+            
             if table_chunks:
-                logger.info(f"  └─ {len(table_chunks)} chunks contain tables with AI-generated descriptions.")
+                logger.info(f"  └─ Enhanced {len(table_chunks)} table chunks with precomputed descriptions.")
             
             return chunks
             
@@ -231,11 +228,9 @@ class EnhancedDocumentChunker:
 # Example usage
 if __name__ == "__main__":
     from transformers import AutoTokenizer
-    from dotenv import load_dotenv
 
     # Load environment variables from .env file in the 'backend' directory
     # This should be done before any other code that needs the environment variables
-    load_dotenv()
     
     try:
         # Step 1: Convert document
@@ -257,37 +252,26 @@ if __name__ == "__main__":
             max_tokens=512,
         )
         chunks = enhanced_chunker.chunk_document(docling_doc)
-        # Step 4: Save all chunks to a file for debugging
-        import json
-        from pathlib import Path
-
-        # Use the absolute path requested by the user to avoid ambiguity on Windows
-        output_dir = Path(r"C:/Users/h.goian/Documents/Maseera/Finance/Financial_Statemets_Analysis/Financial_Statement_Analysis_POC_Crewai/backend/src/financial_statement_analysis/output/processed_docs")
-        output_dir.mkdir(parents=True, exist_ok=True)
-
+        
+        # Step 4: Display a sample table chunk with its metadata
         logger.info("\n" + "="*70)
-        logger.info("SAVING CHUNKS TO FILES:")
+        logger.info("Sample Table Chunk with Gemini Description:")
         logger.info("="*70)
-
+        
+        found_table_chunk = False
         for i, chunk in enumerate(chunks):
-            has_table = any(item.label == DocItemLabel.TABLE for item in chunk.meta.doc_items)
-            chunk_type = "TABLE" if has_table else "TEXT"
-            
-            # Save chunk text
-            chunk_file = output_dir / f"chunk_{i:03d}_{chunk_type}.txt"
-            with open(chunk_file, 'w', encoding='utf-8') as f:
-                f.write(f"CHUNK {i} ({chunk_type})\n")
-                f.write("="*70 + "\n\n")
-                f.write(chunk.text)
-            
-            # Save metadata separately
-            meta_file = output_dir / f"chunk_{i:03d}_{chunk_type}_metadata.txt"
-            with open(meta_file, 'w', encoding='utf-8') as f:
-                f.write(str(chunk.meta))
-            
-            logger.info(f"✓ Saved chunk {i} to {chunk_file}")
-
-        logger.info(f"\n✓ All {len(chunks)} chunks saved to {output_dir}/")
-
+            if any(item.label == DocItemLabel.TABLE for item in chunk.meta.doc_items):
+                logger.info(f"\n--- Chunk {i} (Table) ---")
+                logger.info(chunk.text)
+                logger.info(f"\n--- Metadata for Chunk {i} ---")
+                logger.info(chunk.meta)
+                found_table_chunk = True
+                break
+        
+        if not found_table_chunk:
+            logger.info("No table chunks were found to display.")
+        
+        logger.info(f"\n✓ Ready for RAG pipeline with {len(chunks)} enhanced chunks.")
+        
     except Exception as e:
         logger.error(f"Example execution failed: {e}", exc_info=True)
