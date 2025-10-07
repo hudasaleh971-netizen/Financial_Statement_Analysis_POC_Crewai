@@ -1,19 +1,66 @@
 extract_metadata:
-  description: Extract metadata (entity name, currency, report year, previous year) from the financial statement in the file {filename}.
-  agent: metadata_agent
-  expected_output: A JSON object containing the entity name, currency, report year, and previous year.
+  description: >
+    Extract metadata from the financial statement in the file {filename}.
+    Parse values in parentheses like (100) as negative floats like -100 where applicable.
+    Use None for any missing values.
+    Identify the entity name, unit (e.g., US$000), report year, and previous year.
+  expected_output: >
+    A JSON object matching the FSUnitAndYears model with keys: entity_name (string), unit (string), report_year (integer), prev_year (integer).
 
 extract_income_statement:
-  description: Extract income statement metrics from the financial statement in the file {filename}.
-  agent: income_statement_agent
-  expected_output: A JSON object containing net interest income, non-interest income, operating expenses, interest expense, and net income for the report year and previous year.
+  description: >
+    Extract income statement metrics from the financial statement in the file {filename}.
+    Use the report_year and prev_year from the metadata context to extract values specifically for those years.
+    Use the unit from metadata for any scaling or interpretation.
+    Parse values in parentheses like (100) as negative floats like -100.
+    Use None for any missing values.
+  expected_output: >
+    A JSON object matching the IncomeStatementMetrics model with keys like net_interest_income (dict of year to optional float), and similar for non_interest_income, operating_expenses, interest_expense, net_income.
+    Include values only for the report_year and prev_year from metadata.
 
 extract_balance_sheet:
-  description: Extract balance sheet metrics from the financial statement in the file {filename}.
-  agent: balance_sheet_agent
-  expected_output: A JSON object containing total assets, assets line items, total liabilities, liabilities line items, total equity, and equity line items for the report year and previous year.
+  description: >
+    Extract balance sheet metrics from the financial statement in the file {filename}.
+    Use the report_year and prev_year from the metadata context to extract values specifically for those years.
+    Use the unit from metadata for any scaling or interpretation.
+    Parse values in parentheses like (100) as negative floats like -100.
+    Use None for any missing values.
+  expected_output: >
+    A JSON object matching the BalanceSheetMetrics model with keys like total_assets (dict of year to optional float), assets_line_items (dict of str to dict of year to optional float), and similar for liabilities and equity.
+    Include values only for the report_year and prev_year from metadata.
 
 extract_risk_liquidity:
-  description: Extract risk and liquidity metrics from the financial statement in the file {filename}.
-  agent: risk_liquidity_agent
-  expected_output: A JSON object containing total loans, total deposits, loan loss provisions, non-performing loans, regulatory capital, risk-weighted assets, high-quality liquid assets, and net cash outflows over 30 days for the report year and previous year.
+  description: >
+    Extract risk and liquidity metrics from the financial statement in the file {filename}.
+    Use the report_year and prev_year from the metadata context to extract values specifically for those years.
+    Use the unit from metadata for any scaling or interpretation.
+    Parse values in parentheses like (100) as negative floats like -100.
+    Use None for any missing values.
+  expected_output: >
+    A JSON object matching the RiskAndLiquidityMetrics model with keys like total_loans (dict of year to optional float), and similar for other risk and liquidity metrics.
+    Include values only for the report_year and prev_year from metadata.
+
+aggregate_all_results:
+  description: >
+    Review ALL previous task outputs from the metadata, income statement, balance sheet, 
+    and risk/liquidity extraction tasks. 
+    
+    IMPORTANT: Each previous task has TWO outputs:
+    1. A structured Pydantic object (which may be incomplete or empty)
+    2. A raw text output (which contains the full details)
+    
+    Your job is to:
+    - Examine both the structured and raw text outputs from each task
+    - If the Pydantic output is missing data but the raw text has it, extract it
+    - Validate that all extracted values are correct and consistent
+    - Combine everything into a single CompleteFinancialAnalysis object
+    - Ensure no data is lost in the aggregation process
+    
+  expected_output: >
+    A complete CompleteFinancialAnalysis Pydantic object containing:
+    - metadata: FSUnitAndYears with entity_name, unit, report_year, prev_year
+    - income_statement: IncomeStatementMetrics with all available metrics
+    - balance_sheet: BalanceSheetMetrics with all available metrics and line items
+    - risk_and_liquidity: RiskAndLiquidityMetrics with all available metrics
+    
+    All fields should be populated with accurate data extracted from previous tasks.

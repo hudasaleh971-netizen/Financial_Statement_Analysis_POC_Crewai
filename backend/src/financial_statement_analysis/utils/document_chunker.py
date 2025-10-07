@@ -332,58 +332,5 @@ if __name__ == "__main__":
         # Step 5: Save chunks to local Qdrant vector database
         logger.info("\nStep 5: Saving chunks to local Qdrant...")
         
-        # # Initialize embedding model (use all-MiniLM-L6-v2 for 384-dim embeddings)
-        # embedder = SentenceTransformer('ibm-granite/granite-embedding-english-r2')
-        
-        # # Initialize Qdrant client in local mode (disk-persisted)
-        # qdrant_path = "./qdrant_db"  # Directory for local Qdrant storage
-        # client = QdrantClient(path=qdrant_path)
-        
-        # collection_name = "financial_docs"
-        
-        # # Create collection if it doesn't exist
-        # if not client.has_collection(collection_name):
-        #     client.create_collection(
-        #         collection_name=collection_name,
-        #         vectors_config=models.VectorParams(
-        #             size=384,  # Dimension of all-MiniLM-L6-v2 embeddings
-        #             distance=models.Distance.COSINE
-        #         )
-        #     )
-        #     logger.info(f"Created new Qdrant collection: {collection_name}")
-        # else:
-        #     logger.info(f"Using existing Qdrant collection: {collection_name}")
-        
-        # # Prepare and upsert points
-        # points = []
-        # for i, chunk in enumerate(chunks):
-        #     # Generate embedding for chunk text
-        #     embedding = embedder.encode(chunk.text).tolist()
-            
-        #     # Use a unique ID (e.g., UUID based on filename and chunk index)
-        #     chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{chunk.meta['filename']}_{i}"))
-            
-        #     # Payload includes text and metadata
-        #     payload = {
-        #         "text": chunk.text,
-        #         "metadata": chunk.meta
-        #     }
-            
-        #     points.append(
-        #         models.PointStruct(
-        #             id=chunk_id,
-        #             vector=embedding,
-        #             payload=payload
-        #         )
-        #     )
-        
-        # # Upsert the points in batch
-        # client.upsert(
-        #     collection_name=collection_name,
-        #     points=points
-        # )
-        
-        # logger.info(f"✓ Successfully saved {len(chunks)} chunks to Qdrant collection '{collection_name}'.")
-        
     except Exception as e:
         logger.error(f"Example execution failed: {e}", exc_info=True)
