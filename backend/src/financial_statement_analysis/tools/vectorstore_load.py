@@ -49,7 +49,7 @@ class RetrieverTool(BaseTool):
             qdrant_path = "./qdrant_db"
             client = QdrantClient(path=qdrant_path)
             
-            collection_name = "financial_docs"
+            collection_name = "financial_docs2"
             
             # Step 3: Load the vector store
             vector_store = Qdrant(

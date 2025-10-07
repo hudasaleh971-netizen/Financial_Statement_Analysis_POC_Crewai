@@ -33,57 +33,57 @@
       "2023": 50611000.0
     },
     "assets_line_items": {
-      "Cash and balances at central banks": {
+      "cash_and_balances_at_central_banks": {
+        "2024": 6494000.0,
+        "2023": 911615.0
+      },
+      "trading_assets": {
         "2024": 1923099.0,
         "2023": 1779460.0
       },
-      "Trading assets": {
-        "2024": 32630.0,
-        "2023": null
+      "financial_assets_designated_and_otherwise_mandatorily_measured_at_fair_value_through_profit_or_loss": {
+        "2024": 34127.0,
+        "2023": 32630.0
       },
-      "Financial assets designated and otherwise mandatorily measured at fair value through profit or loss": {
+      "derivatives": {
         "2024": 952893.0,
         "2023": 1141800.0
       },
-      "Derivatives": {
+      "loans_and_advances_to_banks": {
         "2024": 11682290.0,
         "2023": 8081173.0
       },
-      "Loans and advances to banks": {
+      "loans_and_advances_to_customers": {
         "2024": 20440155.0,
         "2023": 20072182.0
       },
-      "Loans and advances to customers": {
+      "reverse_repurchase_agreements_non_trading": {
         "2024": 7878210.0,
         "2023": 6388752.0
       },
-      "Reverse repurchase agreements - non-trading": {
+      "financial_investments": {
         "2024": 11592083.0,
         "2023": 10402610.0
       },
-      "Financial investments": {
-        "2024": 1436181.0,
-        "2023": null
+      "prepayments_accrued_income_and_other_assets_1": {
+        "2024": 18677.0,
+        "2023": 1436181.0
       },
-      "Prepayments, accrued income and other assets 1": {
-        "2024": 9.0,
-        "2023": null
+      "current_tax_assets": {
+        "2024": 8.0,
+        "2023": 9.0
       },
-      "Current tax assets": {
+      "interests_in_associates": {
         "2024": 2261.0,
         "2023": 2353.0
       },
-      "Interests in associates": {
+      "intangible_assets": {
         "2024": 265025.0,
         "2023": 247441.0
       },
-      "Intangible assets": {
+      "deferred_tax_assets": {
         "2024": 120359.0,
         "2023": 115887.0
-      },
-      "Deferred tax assets": {
-        "2024": 911615.0,
-        "2023": null
       }
     },
     "total_liabilities": {
@@ -91,55 +91,55 @@
       "2023": 45064482.0
     },
     "liabilities_line_items": {
-      "Liabilities and equity securities": {
-        "2024": 4395836.0,
-        "2023": null
+      "liabilities_and_equity_securities": {
+        "2024": 6499507.0,
+        "2023": 4395836.0
       },
-      "Liabilities": {
+      "liabilities": {
         "2024": 20834268.0,
         "2023": 31366721.0
       },
-      "Deposits by banks": {
+      "deposits_by_banks": {
         "2024": 2936076.0,
         "2023": 1801365.0
       },
-      "Customer accounts": {
+      "customer_accounts": {
         "2024": 837253.0,
         "2023": 807757.0
       },
-      "Repurchase agreements - non-trading": {
+      "repurchase_agreements_non_trading": {
         "2024": 1238466.0,
         "2023": 1429282.0
       },
-      "Trading liabilities": {
+      "trading_liabilities": {
         "2024": 13785326.0,
         "2023": 1063261.0
       },
-      "Financial liabilities designated at fair value": {
+      "financial_liabilities_designated_at_fair_value": {
         "2024": 23808.0,
         "2023": 1043317.0
       },
-      "Derivatives": {
+      "derivatives": {
         "2024": 23511.0,
         "2023": 1470265.0
       },
-      "Debt securities in issue": {
+      "debt_securities_in_issue": {
         "2024": 23808.0,
         "2023": null
       },
-      "Accruals, deferred income and other liabilities": {
+      "accruals_deferred_income_and_other_liabilities": {
         "2024": 2511551.0,
         "2023": 2470155.0
       },
-      "Current tax assets": {
+      "current_tax_assets": {
         "2024": 238625.0,
         "2023": 163539.0
       },
-      "Provisions": {
+      "provisions": {
         "2024": 233764.0,
         "2023": 48151.0
       },
-      "Subordinated liabilities": {
+      "subordinated_liabilities": {
         "2024": 945751.0,
         "2023": 475000.0
       }
@@ -149,23 +149,23 @@
       "2023": 5547146.0
     },
     "equity_line_items": {
-      "Equity": {
+      "equity": {
         "2024": 931055.0,
         "2023": 931055.0
       },
-      "Called up share capital": {
+      "called_up_share_capital": {
         "2024": 61346.0,
         "2023": 61346.0
       },
-      "Share premium account": {
+      "share_premium_account": {
         "2024": 990000.0,
         "2023": 967500.0
       },
-      "Other equity instrument": {
+      "other_equity_instrument": {
         "2024": -212589.0,
         "2023": null
       },
-      "Retained earnings": {
+      "retained_earnings": {
         "2024": 3579772.0,
         "2023": 3799973.0
       }
@@ -177,8 +177,8 @@
       "2023": 28153355.0
     },
     "total_deposits": {
-      "2024": 3773329.0,
-      "2023": 2609122.0
+      "2024": 837253.0,
+      "2023": 807757.0
     },
     "loan_loss_provisions": {
       "2024": null,

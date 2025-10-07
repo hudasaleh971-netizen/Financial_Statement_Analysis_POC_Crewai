@@ -76,13 +76,16 @@ aggregator_agent = Agent(
     max_iter=2
 )
 
+output_dir = "C:/Users/h.goian/Documents/Maseera/Finance/Financial_Statemets_Analysis/Financial_Statement_Analysis_POC_Crewai/backend/src/financial_statement_analysis/output/crew_output"
+
 # Define tasks
 extract_metadata_task = Task(
     description="Extract metadata from the financial statement in the file {filename}. Parse values in parentheses like (100) as negative floats like -100 where applicable. Use None for any missing values.",
     expected_output="A JSON object matching the FSUnitAndYears model with keys: entity_name (string), unit (string), report_year (integer), prev_year (integer).",
     agent=metadata_agent,
     # output_pydantic=FSUnitAndYears,
-    output_format="json"
+    output_format="json",
+    output_file=os.path.join(output_dir, "extract_metadata_task.json")
 )
 
 extract_income_statement_task = Task(
@@ -91,7 +94,8 @@ extract_income_statement_task = Task(
     agent=income_statement_agent,
     # output_pydantic=IncomeStatementMetrics,
     context=[extract_metadata_task],
-    output_format="json"
+    output_format="json",
+    output_file=os.path.join(output_dir, "extract_income_statement_task.json")
 )
 
 extract_balance_sheet_task = Task(
@@ -100,7 +104,8 @@ extract_balance_sheet_task = Task(
     agent=balance_sheet_agent,
     # output_pydantic=BalanceSheetMetrics,
     context=[extract_metadata_task],
-    output_format="json"
+    output_format="json",
+    output_file=os.path.join(output_dir, "extract_balance_sheet_task.json")
 )
 
 extract_risk_liquidity_task = Task(
@@ -109,7 +114,8 @@ extract_risk_liquidity_task = Task(
     agent=risk_liquidity_agent,
     # output_pydantic=RiskAndLiquidityMetrics,
     context=[extract_metadata_task],
-    output_format="json"
+    output_format="json",
+    output_file=os.path.join(output_dir, "extract_risk_liquidity_task.json")
 )
 
 aggregate_task = Task(
@@ -141,7 +147,8 @@ aggregate_task = Task(
         extract_balance_sheet_task,
         extract_risk_liquidity_task
     ],
-    output_format="json"
+    output_format="json",
+    output_file=os.path.join(output_dir, "aggregate_task.json")
 )
 
 # Create crew
