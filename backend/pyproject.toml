@@ -27,4 +27,9 @@ dependencies = [
     "pydantic>=2.11.10",
     "fastapi>=0.118.0",
     "uvicorn>=0.37.0",
+    "streamlit>=1.50.0",
+    "python-multipart>=0.0.20",
+    "langfuse>=3.6.1",
+    "openinference-instrumentation-crewai>=0.1.13",
+    "openinference-instrumentation-litellm>=0.1.26",
 ]
