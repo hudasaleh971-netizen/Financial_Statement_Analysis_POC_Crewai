@@ -13,6 +13,9 @@ from src.financial_statement_analysis.utils.pydantic_models import (
     CompleteFinancialAnalysis
 )
 
+# Import Langfuse initialization
+from src.financial_statement_analysis.utils.langfuse_config import init_langfuse  # Add this import
+
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
@@ -176,14 +179,21 @@ if __name__ == "__main__":
     import pprint
     import json
 
+    # Initialize Langfuse, instrumentation for tracing
+    langfuse = init_langfuse()  # Add this call; returns the langfuse client
+
     filename = "HSBC-11.pdf"
 
     # The inputs dictionary will be used to fill the {filename} placeholder
     inputs = {'filename': filename}
 
-    # Kick off the crew with the provided inputs
-    result = crew.kickoff(inputs=inputs)
-    
+    # Wrap the crew kickoff in a Langfuse span for tracing
+    with langfuse.start_as_current_span(name="financial-analysis-crew"):
+        result = crew.kickoff(inputs=inputs)
+
+    # Flush Langfuse events (important for short-lived scripts)
+    langfuse.flush()
+
     print("\n" + "="*50)
     print("## Complete Financial Analysis Results ##")
     print("="*50 + "\n")
