@@ -1,20 +1,22 @@
+# src/financial_statement_analysis/streamlitapp.py
 import streamlit as st
 import json
 import tempfile
 import os
 from pathlib import Path
-
-# Import your processing modules
-from langchain_community.vectorstores import Qdrant
-from langchain_huggingface import HuggingFaceEmbeddings
+from copy import deepcopy
+import pandas as pd
+import io
 from transformers import AutoTokenizer
-
 from src.financial_statement_analysis.utils.document_processor import DocumentProcessor
 from src.financial_statement_analysis.utils.document_chunker import EnhancedDocumentChunker
 from src.financial_statement_analysis.utils.logging_config import setup_logger
+from src.financial_statement_analysis.utils.langfuse_config import init_langfuse
 from src.financial_statement_analysis.utils.vectorstore_save import save_chunks_to_qdrant
-from src.financial_statement_analysis.crew import crew
+from src.financial_statement_analysis.crew import run_crew  # Import the new function
 
+# Initialize Langfuse, instrumentation for tracing
+langfuse = init_langfuse()  # Add this call; returns the langfuse client
 # Page configuration
 st.set_page_config(
     page_title="Financial Statement Analyzer",
@@ -61,29 +63,81 @@ def process_document(file_path):
         save_chunks_to_qdrant(chunks, file_path)    
         
         filename = os.path.basename(file_path)
-        inputs = {'filename': filename}
 
-        # Step 5: Run the crew analysis
+        # Step 5: Run the crew analysis using the new function
         logger.info("Step 5: Running crew analysis...")
-        crew_output = crew.kickoff(inputs=inputs)
+        crew_outputs = run_crew(filename)
         
-        # Extract the Pydantic model from CrewOutput
-        # CrewOutput has a .pydantic attribute that contains the structured output
-        if hasattr(crew_output, 'pydantic'):
-            result = crew_output.pydantic.model_dump()
-        elif hasattr(crew_output, 'json_dict'):
-            result = crew_output.json_dict
-        elif hasattr(crew_output, 'dict'):
-            result = crew_output.dict()
-        else:
-            # Fallback: try to convert to dict
-            result = dict(crew_output)
-        
-        return result
+        return crew_outputs
     
     except Exception as e:
         logger.error(f"Error processing document: {str(e)}")
         raise e
+
+def display_editable_metadata(key, data_dict):
+    df = pd.DataFrame([data_dict])
+    column_config = {
+        "entity_name": st.column_config.TextColumn("Entity Name"),
+        "unit": st.column_config.TextColumn("Unit"),
+        "report_year": st.column_config.NumberColumn("Report Year"),
+        "prev_year": st.column_config.NumberColumn("Previous Year"),
+        "fiscal_month_end": st.column_config.NumberColumn("Fiscal Month End"),
+    }
+    edited_df = st.data_editor(
+        df,
+        column_config=column_config,
+        hide_index=True,
+        num_rows="fixed",
+        disabled=st.session_state.confirmed,
+        key=key
+    )
+    return edited_df.iloc[0].to_dict() if not edited_df.empty else data_dict
+
+def display_editable_metrics(key, metrics_list, metadata, extra_cols=None):
+    if not metrics_list:
+        return []
+    
+    extra_cols = extra_cols or []
+    df = pd.DataFrame(metrics_list)
+    
+    # Rename value columns dynamically
+    rename_map = {
+        'current_year_value': f'Value {metadata["report_year"]}',
+        'previous_year_value': f'Value {metadata["prev_year"]}'
+    }
+    df_renamed = df.rename(columns=rename_map)
+    
+    # Define column order
+    base_cols = ['metric_name'] + [col for col in df_renamed.columns if 'Value' in col]
+    all_cols = base_cols + (['category'] if 'category' in df_renamed.columns else []) + extra_cols
+    df_renamed = df_renamed[all_cols]
+    
+    # Column configs
+    column_config = {
+        "metric_name": st.column_config.TextColumn("Metric Name"),
+    }
+    for col in extra_cols:
+        if col == 'confidence':
+            column_config[col] = st.column_config.NumberColumn("Confidence", min_value=0.0, max_value=1.0, step=0.01)
+        elif col == 'explanation':
+            column_config[col] = st.column_config.TextColumn("Explanation", width="large")
+    if 'category' in all_cols:
+        column_config['category'] = st.column_config.SelectboxColumn("Category", options=[e.value for e in BalanceSheetCategory] if 'Assets' in extra_cols[0] else [e.value for e in IncomeStatementCategory])
+    
+    edited_df = st.data_editor(
+        df_renamed,
+        column_config=column_config,
+        hide_index=True,
+        num_rows="dynamic" if not st.session_state.confirmed else "fixed",
+        disabled=st.session_state.confirmed,
+        key=key
+    )
+    
+    # Rename back
+    reverse_map = {v: k for k, v in rename_map.items()}
+    edited_df = edited_df.rename(columns=reverse_map)
+    
+    return edited_df.to_dict(orient='records')
 
 st.title("📊 Financial Statement Analyzer")
 st.markdown("Upload a PDF financial statement to extract and verify structured data")
@@ -113,7 +167,7 @@ if uploaded_file is not None:
                 
                 # Store result in session state
                 st.session_state.analysis_data = result
-                st.session_state.edited_data = json.loads(json.dumps(result))
+                st.session_state.edited_data = deepcopy(result)
                 st.session_state.confirmed = False
                 
                 # Clean up temp file
@@ -135,226 +189,37 @@ if st.session_state.edited_data is not None:
         st.success("✅ Data confirmed and saved!")
     
     data = st.session_state.edited_data
+    metadata = data['metadata']  # For easy access
     
-    # Metadata Section
-    st.subheader("📋 Metadata")
-    col1, col2, col3, col4 = st.columns(4)
+    # Use tabs for different sections
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Metadata", "Balance Sheet", "Key Metrics", "Income Statement", "Income Metrics", "Risk Metrics"])
     
-    with col1:
-        data['metadata']['entity_name'] = st.text_input(
-            "Entity Name",
-            value=data['metadata']['entity_name'],
-            key="entity_name",
-            disabled=st.session_state.confirmed
-        )
+    with tab1:
+        st.subheader("📋 Metadata Table")
+        data['metadata'] = display_editable_metadata("metadata_editor", data['metadata'])
     
-    with col2:
-        data['metadata']['unit'] = st.text_input(
-            "Unit",
-            value=data['metadata']['unit'],
-            key="unit",
-            disabled=st.session_state.confirmed
-        )
+    with tab2:
+        st.subheader("🏦 Balance Sheet Metrics")
+        data['balance_sheet']['metrics'] = display_editable_metrics("bs_editor", data['balance_sheet']['metrics'], metadata, extra_cols=[])
     
-    with col3:
-        data['metadata']['report_year'] = st.number_input(
-            "Report Year",
-            value=data['metadata']['report_year'],
-            min_value=1900,
-            max_value=2100,
-            key="report_year",
-            disabled=st.session_state.confirmed
-        )
+    with tab3:
+        st.subheader("🔑 Key Financial Metrics")
+        data['key_metrics']['metrics'] = display_editable_metrics("key_metrics_editor", data['key_metrics']['metrics'], metadata, extra_cols=[])
     
-    with col4:
-        data['metadata']['prev_year'] = st.number_input(
-            "Previous Year",
-            value=data['metadata']['prev_year'],
-            min_value=1900,
-            max_value=2100,
-            key="prev_year",
-            disabled=st.session_state.confirmed
-        )
+    with tab4:
+        st.subheader("💰 Income Statement Metrics")
+        data['income_statement']['metrics'] = display_editable_metrics("is_editor", data['income_statement']['metrics'], metadata, extra_cols=[])
     
-    years = [data['metadata']['report_year'], data['metadata']['prev_year']]
+    with tab5:
+        st.subheader("📈 Key Income Metrics")
+        data['income_metrics']['metrics'] = display_editable_metrics("income_metrics_editor", data['income_metrics']['metrics'], metadata, extra_cols=['confidence', 'explanation'])
     
-    # Income Statement Section
-    st.subheader("💰 Income Statement")
-    income_metrics = [
-        ('net_interest_income', 'Net Interest Income'),
-        ('non_interest_income', 'Non-Interest Income'),
-        ('operating_expenses', 'Operating Expenses'),
-        ('interest_expense', 'Interest Expense'),
-        ('net_income', 'Net Income')
-    ]
+    with tab6:
+        st.subheader("⚠️ Key Risk Metrics")
+        data['risk_metrics']['metrics'] = display_editable_metrics("risk_editor", data['risk_metrics']['metrics'], metadata, extra_cols=['confidence', 'explanation'])
     
-    for metric_key, metric_label in income_metrics:
-        cols = st.columns([3] + [1] * len(years))
-        cols[0].markdown(f"**{metric_label}**")
-        for idx, year in enumerate(years):
-            value = data['income_statement'][metric_key].get(year)
-            new_value = cols[idx + 1].number_input(
-                f"{year}",
-                value=float(value) if value is not None else 0.0,
-                format="%.2f",
-                key=f"income_{metric_key}_{year}",
-                label_visibility="visible",
-                disabled=st.session_state.confirmed
-            )
-            data['income_statement'][metric_key][year] = new_value if new_value != 0.0 else None
-    
-    # Balance Sheet Section
-    st.subheader("🏦 Balance Sheet")
-    
-    # Total Assets
-    st.markdown("**Total Assets**")
-    cols = st.columns([3] + [1] * len(years))
-    cols[0].write("")
-    for idx, year in enumerate(years):
-        value = data['balance_sheet']['total_assets'].get(year)
-        new_value = cols[idx + 1].number_input(
-            f"{year}",
-            value=float(value) if value is not None else 0.0,
-            format="%.2f",
-            key=f"total_assets_{year}",
-            disabled=st.session_state.confirmed
-        )
-        data['balance_sheet']['total_assets'][year] = new_value if new_value != 0.0 else None
-    
-    # Asset Line Items
-    with st.expander("📊 Asset Line Items", expanded=False):
-        # Add new asset line item
-        if not st.session_state.confirmed:
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                new_asset_item = st.text_input("Add new asset line item", key="new_asset_item", placeholder="Enter item name...")
-            with col2:
-                if st.button("➕ Add", key="add_asset_btn", use_container_width=True):
-                    if new_asset_item and new_asset_item not in data['balance_sheet']['assets_line_items']:
-                        data['balance_sheet']['assets_line_items'][new_asset_item] = {year: None for year in years}
-                        st.rerun()
-            st.markdown("---")
-        
-        items_to_remove = []
-        for line_item, values in data['balance_sheet']['assets_line_items'].items():
-            cols = st.columns([3] + [1] * len(years) + [0.5])
-            cols[0].markdown(f"*{line_item}*")
-            for idx, year in enumerate(years):
-                value = values.get(year)
-                new_value = cols[idx + 1].number_input(
-                    f"{year}",
-                    value=float(value) if value is not None else 0.0,
-                    format="%.2f",
-                    key=f"asset_{line_item}_{year}",
-                    label_visibility="collapsed",
-                    disabled=st.session_state.confirmed
-                )
-                data['balance_sheet']['assets_line_items'][line_item][year] = new_value if new_value != 0.0 else None
-            
-            # Delete button
-            if not st.session_state.confirmed:
-                if cols[-1].button("🗑️", key=f"del_asset_{line_item}", help="Delete this item"):
-                    items_to_remove.append(line_item)
-        
-        # Remove items after iteration
-        for item in items_to_remove:
-            del data['balance_sheet']['assets_line_items'][item]
-            st.rerun()
-    
-    # Total Liabilities
-    st.markdown("**Total Liabilities**")
-    cols = st.columns([3] + [1] * len(years))
-    cols[0].write("")
-    for idx, year in enumerate(years):
-        value = data['balance_sheet']['total_liabilities'].get(year)
-        new_value = cols[idx + 1].number_input(
-            f"{year}",
-            value=float(value) if value is not None else 0.0,
-            format="%.2f",
-            key=f"total_liabilities_{year}",
-            disabled=st.session_state.confirmed
-        )
-        data['balance_sheet']['total_liabilities'][year] = new_value if new_value != 0.0 else None
-    
-    # Liability Line Items
-    with st.expander("📊 Liability Line Items", expanded=False):
-        for line_item, values in data['balance_sheet']['liabilities_line_items'].items():
-            cols = st.columns([3] + [1] * len(years))
-            cols[0].markdown(f"*{line_item}*")
-            for idx, year in enumerate(years):
-                value = values.get(year)
-                new_value = cols[idx + 1].number_input(
-                    f"{year}",
-                    value=float(value) if value is not None else 0.0,
-                    format="%.2f",
-                    key=f"liability_{line_item}_{year}",
-                    label_visibility="collapsed",
-                    disabled=st.session_state.confirmed
-                )
-                data['balance_sheet']['liabilities_line_items'][line_item][year] = new_value if new_value != 0.0 else None
-    
-    # Total Equity
-    st.markdown("**Total Equity**")
-    cols = st.columns([3] + [1] * len(years))
-    cols[0].write("")
-    for idx, year in enumerate(years):
-        value = data['balance_sheet']['total_equity'].get(year)
-        new_value = cols[idx + 1].number_input(
-            f"{year}",
-            value=float(value) if value is not None else 0.0,
-            format="%.2f",
-            key=f"total_equity_{year}",
-            disabled=st.session_state.confirmed
-        )
-        data['balance_sheet']['total_equity'][year] = new_value if new_value != 0.0 else None
-    
-    # Equity Line Items
-    with st.expander("📊 Equity Line Items", expanded=False):
-        for line_item, values in data['balance_sheet']['equity_line_items'].items():
-            cols = st.columns([3] + [1] * len(years))
-            cols[0].markdown(f"*{line_item}*")
-            for idx, year in enumerate(years):
-                value = values.get(year)
-                new_value = cols[idx + 1].number_input(
-                    f"{year}",
-                    value=float(value) if value is not None else 0.0,
-                    format="%.2f",
-                    key=f"equity_{line_item}_{year}",
-                    label_visibility="collapsed",
-                    disabled=st.session_state.confirmed
-                )
-                data['balance_sheet']['equity_line_items'][line_item][year] = new_value if new_value != 0.0 else None
-    
-    # Risk and Liquidity Section
-    st.subheader("⚠️ Risk and Liquidity Metrics")
-    risk_metrics = [
-        ('total_loans', 'Total Loans'),
-        ('total_deposits', 'Total Deposits'),
-        ('loan_loss_provisions', 'Loan Loss Provisions'),
-        ('non_performing_loans', 'Non-Performing Loans'),
-        ('regulatory_capital', 'Regulatory Capital'),
-        ('risk_weighted_assets', 'Risk Weighted Assets'),
-        ('high_quality_liquid_assets', 'High Quality Liquid Assets'),
-        ('net_cash_outflows_over_30_days', 'Net Cash Outflows (30 days)')
-    ]
-    
-    for metric_key, metric_label in risk_metrics:
-        cols = st.columns([3] + [1] * len(years))
-        cols[0].markdown(f"**{metric_label}**")
-        for idx, year in enumerate(years):
-            value = data['risk_and_liquidity'][metric_key].get(year)
-            new_value = cols[idx + 1].number_input(
-                f"{year}",
-                value=float(value) if value is not None else 0.0,
-                format="%.2f",
-                key=f"risk_{metric_key}_{year}",
-                label_visibility="visible",
-                disabled=st.session_state.confirmed
-            )
-            data['risk_and_liquidity'][metric_key][year] = new_value if new_value != 0.0 else None
-    
-    # Confirm button
-    st.header("3. Confirm Data")
+    # Confirm and Download section
+    st.header("3. Confirm and Export Data")
     col1, col2, col3 = st.columns([1, 1, 4])
     
     with col1:
@@ -369,28 +234,46 @@ if st.session_state.edited_data is not None:
                 st.session_state.confirmed = False
                 st.rerun()
     
+    # Download JSON
     with col3:
-        if st.download_button(
+        st.download_button(
             label="💾 Download JSON",
             data=json.dumps(data, indent=2),
             file_name=f"financial_analysis_{data['metadata']['entity_name']}_{data['metadata']['report_year']}.json",
             mime="application/json",
             use_container_width=True
-        ):
-            st.success("Downloaded successfully!")
+        )
+    
+    # Download Excel with multiple sheets
+    if st.button("📑 Download Excel", use_container_width=True):
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            pd.DataFrame([data['metadata']]).to_excel(writer, sheet_name='Metadata', index=False)
+            pd.DataFrame(data['balance_sheet']['metrics']).to_excel(writer, sheet_name='Balance Sheet', index=False)
+            pd.DataFrame(data['key_metrics']['metrics']).to_excel(writer, sheet_name='Key Metrics', index=False)
+            pd.DataFrame(data['income_statement']['metrics']).to_excel(writer, sheet_name='Income Statement', index=False)
+            pd.DataFrame(data['income_metrics']['metrics']).to_excel(writer, sheet_name='Income Metrics', index=False)
+            pd.DataFrame(data['risk_metrics']['metrics']).to_excel(writer, sheet_name='Risk Metrics', index=False)
+        output.seek(0)
+        st.download_button(
+            label="📑 Download Excel",
+            data=output,
+            file_name=f"financial_analysis_{data['metadata']['entity_name']}_{data['metadata']['report_year']}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
-# Sidebar with instructions
+# Sidebar with instructions (keep as is)
 with st.sidebar:
     st.header("📖 Instructions")
     st.markdown("""
     1. **Upload** a PDF financial statement
     2. Click **Analyze Document** to extract data
-    3. **Review** the extracted fields
-    4. **Edit** any incorrect values
+    3. **Review** the tables in each tab
+    4. **Edit** values, add/delete rows as needed
     5. Click **Confirm Data** when satisfied
-    6. **Download** the JSON output
+    6. **Download** JSON or Excel output
     
-    ---
+    --- 
     
     ### ℹ️ Processing Info
     - Uses direct document processing (no API)
@@ -399,10 +282,12 @@ with st.sidebar:
     """)
     
     st.markdown("---")
-    st.markdown("### 📊 Supported Metrics")
+    st.markdown("### 📊 Supported Sections")
     st.markdown("""
-    - Metadata (Entity, Unit, Years)
-    - Income Statement
-    - Balance Sheet (Assets, Liabilities, Equity)
-    - Risk & Liquidity Metrics
+    - Metadata Table
+    - Balance Sheet Metrics
+    - Key Financial Metrics (Deposits, Loans)
+    - Income Statement Metrics
+    - Key Income Metrics (with confidence/explanation)
+    - Key Risk Metrics (with confidence/explanation)
     """)
