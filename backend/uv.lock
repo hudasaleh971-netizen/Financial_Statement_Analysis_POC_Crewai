@@ -980,12 +980,14 @@ dependencies = [
     { name = "langchain-google-genai" },
     { name = "langchain-huggingface" },
     { name = "langfuse" },
+    { name = "litellm" },
     { name = "llama-index" },
     { name = "loguru" },
     { name = "openinference-instrumentation-crewai" },
     { name = "openinference-instrumentation-litellm" },
     { name = "pydantic" },
     { name = "pymupdf" },
+    { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "qdrant-client" },
     { name = "rapidocr-onnxruntime" },
@@ -993,6 +995,7 @@ dependencies = [
     { name = "streamlit" },
     { name = "torch" },
     { name = "torchvision" },
+    { name = "transformers" },
     { name = "uvicorn" },
 ]
 
@@ -1011,12 +1014,14 @@ requires-dist = [
     { name = "langchain-google-genai", specifier = ">=2.1.12" },
     { name = "langchain-huggingface", specifier = ">=0.1.0" },
     { name = "langfuse", specifier = ">=3.6.1" },
+    { name = "litellm", specifier = ">=1.74.9" },
     { name = "llama-index", specifier = ">=0.14.3" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "openinference-instrumentation-crewai", specifier = ">=0.1.13" },
     { name = "openinference-instrumentation-litellm", specifier = ">=0.1.26" },
     { name = "pydantic", specifier = ">=2.11.10" },
     { name = "pymupdf", specifier = ">=1.26.4" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "qdrant-client", specifier = ">=1.15.1" },
     { name = "rapidocr-onnxruntime", specifier = ">=1.4.4" },
@@ -1024,6 +1029,7 @@ requires-dist = [
     { name = "streamlit", specifier = ">=1.50.0" },
     { name = "torch", specifier = ">=2.2.0" },
     { name = "torchvision", specifier = ">=0.17.0" },
+    { name = "transformers", specifier = ">=4.46,<4.57" },
     { name = "uvicorn", specifier = ">=0.37.0" },
 ]
 
@@ -4723,7 +4729,7 @@ wheels = [
 
 [[package]]
 name = "transformers"
-version = "4.57.0"
+version = "4.56.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
@@ -4737,9 +4743,9 @@ dependencies = [
     { name = "tokenizers" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f3/5c/a22c39dac2687f3fe2a6b97e2c1ae516e91cd4d3976a7a2b7c24ff2fae48/transformers-4.57.0.tar.gz", hash = "sha256:d045753f3d93f9216e693cdb168698dfd2e9d3aad1bb72579a5d60ebf1545a8b", size = 10142956, upload-time = "2025-10-03T17:03:47.177Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/82/0bcfddd134cdf53440becb5e738257cc3cf34cf229d63b57bfd288e6579f/transformers-4.56.2.tar.gz", hash = "sha256:5e7c623e2d7494105c726dd10f6f90c2c99a55ebe86eef7233765abd0cb1c529", size = 9844296, upload-time = "2025-09-19T15:16:26.778Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/2b/4d2708ac1ff5cd708b6548f4c5812d0ae40d1c28591c4c1c762b6dbdef2d/transformers-4.57.0-py3-none-any.whl", hash = "sha256:9d7c6d098c026e40d897e017ed1f481ab803cbac041021dbc6ae6100e4949b55", size = 11990588, upload-time = "2025-10-03T17:03:43.629Z" },
+    { url = "https://files.pythonhosted.org/packages/70/26/2591b48412bde75e33bfd292034103ffe41743cacd03120e3242516cd143/transformers-4.56.2-py3-none-any.whl", hash = "sha256:79c03d0e85b26cb573c109ff9eafa96f3c8d4febfd8a0774e8bba32702dd6dde", size = 11608055, upload-time = "2025-09-19T15:16:23.736Z" },
 ]
 
 [[package]]

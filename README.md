@@ -117,3 +117,11 @@ You can easily modify the behavior of the crew without changing the Python code:
 
 -   **Agents**: Edit `backend/src/financial_statement_analysis/config/agents.yaml` to change the roles, goals, or backstories of your AI agents.
 -   **Tasks**: Edit `backend/src/financial_statement_analysis/config/tasks.yaml` to change the descriptions or expected outputs for each task.
+
+
+llama-server.exe -m gemma-3-4b-it-Q4_0.gguf \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --n-gpu-layers 35 \
+  -c 4096 \
+  --threads 8
